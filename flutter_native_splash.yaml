@@ -1,0 +1,9 @@
+flutter_native_splash:
+  background_image: "assets/images/pixel_journals.png"
+  android: true
+  ios: true
+  fullscreen: true
+  android_gravity: "center"
+  ios_content_mode: "scaleAspectFit"
+  android_12:
+    background_image: "assets/images/pixel_journals.png"
