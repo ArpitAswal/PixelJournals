@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pixel_journals/data/repositories/auth_repository.dart';
+import 'package:pixel_journals/data/repositories/post_repository.dart';
+import 'package:pixel_journals/presentation/viewmodels/bloc/chat_bloc.dart';
+import 'package:pixel_journals/presentation/viewmodels/bloc/create_post_bloc.dart';
+import 'package:pixel_journals/presentation/viewmodels/bloc/posts_bloc.dart';
 import 'package:pixel_journals/presentation/viewmodels/cubit/auth_cubit/cubit.dart';
 import 'package:pixel_journals/core/colors.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:pixel_journals/presentation/views/screens/auth_check_screen.dart';
+import 'package:pixel_journals/presentation/views/screens/chat_screen.dart';
+import 'package:pixel_journals/presentation/views/screens/create_post_screen.dart';
 import 'package:pixel_journals/presentation/views/screens/forgot_screen.dart';
 
 import 'presentation/viewmodels/cubit/text_field_cubit/cubit.dart';
@@ -26,6 +33,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   ); // Initialize Firebase with the default options
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(MyApp());
 }
 
@@ -44,35 +52,6 @@ class _MyAppState extends State<MyApp> {
     _initialization();
   }
 
-  // Checks authState
-  Widget _buildMainScreen() {
-    return FutureBuilder<User?>(
-      future: _getUser(), // Fetch user with latest data
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return const Center(child: Text("Something went wrong"));
-        }
-
-        final user = snapshot.data;
-        if (user == null) {
-          return const SignInScreen();
-        }
-
-        return user.emailVerified
-            ? const PostsScreen()
-            : const EmailVerifiedScreen();
-      },
-    );
-  }
-
-  Future<User?> _getUser() async {
-    return FirebaseAuth.instance.currentUser; // Get the current instance user
-  }
-
   void _initialization() async {
     await Future.delayed(const Duration(seconds: 2));
     FlutterNativeSplash.remove(); // Remove the splash screen after initialization
@@ -82,17 +61,28 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
+      //
       providers: [
         BlocProvider(create: (context) => TextFieldCubit()),
         BlocProvider(
           create: (context) => AuthCubit(authRepository: AuthRepository()),
         ),
+        BlocProvider(
+          create: (context) => PostsBloc(PostsRepository())..add(LoadPosts()),
+        ),
+        BlocProvider(create: (context) => ChatBloc(PostsRepository())),
+        BlocProvider(create: (context) => CreatePostBloc(PostsRepository())),
       ],
       child: MaterialApp(
         title: 'Pixel Journals',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           // Theme data for the app
+          appBarTheme: AppBarTheme(
+            backgroundColor: AppColors.lightRed,
+            centerTitle: true,
+            foregroundColor: AppColors.white,
+          ),
           scaffoldBackgroundColor: AppColors.white,
           colorScheme: ColorScheme.fromSeed(
             seedColor: AppColors.black,
@@ -122,7 +112,7 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
 
-        home: _buildMainScreen(),
+        home: AuthCheckScreen(),
         routes: {
           // Define all the routes for the app
           SignUpScreen.routeName: (context) => const SignUpScreen(),
@@ -131,10 +121,10 @@ class _MyAppState extends State<MyApp> {
               (context) => const ForgotPasswordScreen(),
           EmailVerifiedScreen.routeName:
               (context) => const EmailVerifiedScreen(),
-          PostsScreen.routeName: (context) => const PostsScreen(),
+          PostsScreen.routeName: (context) => PostsScreen(),
           WelcomeScreen.routeName: (context) => const WelcomeScreen(),
-          //CreatePostScreen.routeName: (context) => const CreatePostScreen(),
-          //ChatScreen.routeName: (context) => const ChatScreen(),
+          CreatePostScreen.routeName: (context) => const CreatePostScreen(),
+          ChatScreen.routeName: (context) => const ChatScreen(),
         },
       ),
     );

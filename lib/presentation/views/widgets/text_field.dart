@@ -73,6 +73,7 @@ class EmailTextField extends StatelessWidget {
             ),
           ),
           validator: validator,
+          onTapOutside: (event) => focusNode.unfocus(),
         );
       },
     );
@@ -112,6 +113,7 @@ class PasswordTextField extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: state.isPasswordFocused ? AppColors.lightRed : Colors.grey,
           ),
+          onTapOutside: (event) => focusNode.unfocus(),
           decoration: InputDecoration(
             labelText: labelText,
             prefixIcon: const Icon(Icons.lock_outline),

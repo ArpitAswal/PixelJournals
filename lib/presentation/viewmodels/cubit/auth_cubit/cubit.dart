@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,11 +17,14 @@ class AuthCubit extends Cubit<AuthState> {
       authInst =
           FirebaseAuth
               .instance, // initialize the authInst variable with an instance of FirebaseAuth
-      super(AuthInitial()); // initialize the state to AuthInitial
+      super(AuthInitial()) {// initialize the state to AuthInitial
+       _currentUserState();
+  }
 
   final FirebaseAuth authInst;
-
   final AuthRepository _authRepository;
+  StreamSubscription<User?>? _authUser;
+
 
   Future<void> signUpWithEmail({
     required String email,
@@ -61,14 +66,6 @@ class AuthCubit extends Cubit<AuthState> {
         AuthError(result.message),
       ); // emit the error state with the error message
     }
-  }
-
-  Future<void> signOut() async {
-    await _authRepository.signOut();
-    emit(AuthSignedOut()); // emit the signed out state
-    Future.delayed(const Duration(seconds: 1), () {
-      emit(AuthInitial()); // emit the initial state after a delay of 1 second
-    });
   }
 
   Future<void> resetPassword({required String email}) async {
@@ -115,5 +112,23 @@ class AuthCubit extends Cubit<AuthState> {
     emit(
       AuthError("Email verification link has been sent to your email..."),
     ); // emit the error state with the message
+  }
+
+  void _currentUserState() {
+    _authUser?.cancel();
+     _authRepository.authInstance().listen((user){
+      if(user != null){
+        emit(AuthSignedIn(UserModel(userId: user.uid, userName: user.displayName ?? "NA", isEmailVerified: user.emailVerified,
+        userEmail: user.email ?? "NA", userProfile: user.photoURL)));
+      } else {
+        emit(AuthSignedOut());
+      }
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _authUser?.cancel();
+    return super.close();
   }
 }

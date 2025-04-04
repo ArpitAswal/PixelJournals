@@ -13,6 +13,11 @@ class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
+  Stream<User?> authInstance() {
+    return _auth.authStateChanges();
+  }
+
+
   Future<AuthState> signUpWithEmail({
     required String email,
     required String password,
@@ -61,6 +66,7 @@ class AuthRepository {
         userId: credential.user!.uid,
         userEmail: credential.user!.email!,
         userName: credential.user!.displayName ?? 'NA',
+        isEmailVerified: credential.user!.emailVerified,
       );
       saveUserInfo(user);
       return AuthSignedIn(user); // Return signed in state
@@ -70,8 +76,6 @@ class AuthRepository {
       return AuthError('An unexpected error occurred: ${e.toString()}');
     }
   }
-
-  Future<void> signOut() => _auth.signOut();
 
   Future<AuthState> resetPassword({required String email}) async {
     try {
@@ -100,7 +104,7 @@ class AuthRepository {
       userData['userPassword'] = pass; // Save password if provided
     }
     _firestore
-        .collection(FirebaseConstants.firestoreCollection)
+        .collection(FirebaseConstants.usersCollection)
         .doc(user.userId)
         .set(userData);
   }
@@ -127,4 +131,5 @@ class AuthRepository {
         return 'An error occurred. Please try again';
     }
   }
+
 }
