@@ -6,6 +6,7 @@ class PostModel {
     required this.postTimeStamp,
     required this.postUrl,
     required this.postDescription,
+    required this.userId,
   });
 
   factory PostModel.fromMap(Map<String, dynamic> map) {
@@ -14,6 +15,7 @@ class PostModel {
       postTimeStamp: map['postTimeStamp'] as Timestamp,
       postUrl: map['postUrl'] as String,
       postDescription: map['postDescription'] as String,
+      userId: map['userId'] as String,
     );
   }
 
@@ -21,6 +23,7 @@ class PostModel {
   final String postId;
   final Timestamp postTimeStamp;
   final String postUrl;
+  final String userId;
 
   Map<String, dynamic> toMap() {
     return {
@@ -28,6 +31,7 @@ class PostModel {
       'postTimeStamp': postTimeStamp,
       'postUrl': postUrl,
       'postDescription': postDescription,
+      'userId': userId,
     };
   }
 }

@@ -15,6 +15,9 @@ import 'package:pixel_journals/presentation/views/screens/chat_screen.dart';
 import 'package:pixel_journals/presentation/views/screens/create_post_screen.dart';
 import 'package:pixel_journals/presentation/views/screens/forgot_screen.dart';
 
+import 'data/repositories/user_repository.dart';
+import 'presentation/viewmodels/bloc/user_bloc.dart';
+import 'presentation/viewmodels/cubit/navigation_cubit/cubit.dart';
 import 'presentation/viewmodels/cubit/text_field_cubit/cubit.dart';
 import 'presentation/views/screens/email_screen.dart';
 import 'presentation/views/screens/posts_screen.dart';
@@ -33,7 +36,12 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   ); // Initialize Firebase with the default options
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]); // Set the preferred orientations to portrait up
+  SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+  ); // Set the system UI mode to immersive sticky
   runApp(MyApp());
 }
 
@@ -61,7 +69,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-      //
+      // Using MultiBlocProvider to provide multiple blocs to the widget tree
       providers: [
         BlocProvider(create: (context) => TextFieldCubit()),
         BlocProvider(
@@ -72,6 +80,12 @@ class _MyAppState extends State<MyApp> {
         ),
         BlocProvider(create: (context) => ChatBloc(PostsRepository())),
         BlocProvider(create: (context) => CreatePostBloc(PostsRepository())),
+        BlocProvider(
+          create:
+              (context) =>
+                  UserBloc(userRepository: UserRepository())..add(LoadUsers()),
+        ),
+        BlocProvider(create: (context) => NavigationCubit()),
       ],
       child: MaterialApp(
         title: 'Pixel Journals',
@@ -100,14 +114,16 @@ class _MyAppState extends State<MyApp> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.lightRed,
               foregroundColor: AppColors.white,
-              minimumSize: Size(MediaQuery.of(context).size.width, 50),
+              minimumSize: Size(MediaQuery.of(context).size.width, 40),
               elevation: 8.0,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(8.0),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
               textStyle: Theme.of(
                 context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ),

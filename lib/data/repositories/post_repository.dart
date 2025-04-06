@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart' as storage;
 import 'package:image_picker/image_picker.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants.dart';
@@ -23,30 +24,74 @@ class PostsRepository {
   final storage.FirebaseStorage _storage;
 
   Stream<List<PostModel>> getPosts() {
-    // Fetch posts from Firestore
-    return _firestore
+    // Get current user's posts stream
+    Stream<List<PostModel>> currentUserPosts = _firestore
         .collection(FirebaseConstants.postsCollection)
         .doc(auth.currentUser!.uid)
         .collection(FirebaseConstants.userPostsCollection)
-        .orderBy("postTimeStamp", descending: true)
         .snapshots()
         .map(
           (snapshot) =>
               snapshot.docs
                   .map((doc) => PostModel.fromMap(doc.data()))
-                  .toList(), // Convert each document to PostModel
+                  .toList(),
         );
+
+    // Get followed users' posts streams
+    Stream<List<PostModel>> followedUsersPosts = _firestore
+        .collection(FirebaseConstants.followingCollection)
+        .doc(auth.currentUser!.uid)
+        .collection(FirebaseConstants.followingUsersId)
+        .snapshots() // Get the list of followed users Id
+        .asyncMap((followingSnapshot) async {
+          // Get the posts of followed users
+          List<List<PostModel>> allFollowedUsersPosts = await Future.wait(
+            // Fetch posts for each followed user
+            followingSnapshot.docs.map((followingDoc) {
+              // For each followed user, get their posts
+              return _firestore
+                  .collection(FirebaseConstants.postsCollection)
+                  .doc(followingDoc.id) // followed user Id
+                  .collection(FirebaseConstants.userPostsCollection)
+                  .get() // Get the posts of the followed user
+                  .then(
+                    (postsSnapshot) =>
+                        postsSnapshot.docs
+                            .map((doc) => PostModel.fromMap(doc.data()))
+                            .toList(),
+                  );
+            }),
+          );
+
+          return allFollowedUsersPosts
+              .expand((posts) => posts)
+              .toList(); // Flatten the list of lists into a single list
+        });
+    // Combine the streams of current user's posts and followed users' posts
+    return Rx.combineLatest2(currentUserPosts, followedUsersPosts, (
+      List<PostModel> currentPosts,
+      List<PostModel> followedPosts,
+    ) {
+      List<PostModel> allPosts = [
+        ...currentPosts,
+        ...followedPosts,
+      ]; // Combine the posts, here spread operator is used to combine the two lists
+      allPosts.sort(
+        (a, b) => b.postTimeStamp.compareTo(a.postTimeStamp),
+      ); // Sort the posts by timestamp in descending order
+      return allPosts;
+    });
   }
 
   Future<void> createPost(File image, String description) async {
-    // Create a new post
     final imageUrl = await _uploadImage(image);
-    final postId = const Uuid().v4(); // Generate a unique post ID
+    final postId = const Uuid().v4();
     final post = PostModel(
       postId: postId,
       postTimeStamp: Timestamp.now(),
       postUrl: imageUrl,
       postDescription: description.toLowerCase(),
+      userId: auth.currentUser!.uid,
     );
 
     final userDocRef = _firestore
@@ -56,7 +101,7 @@ class PostsRepository {
 
     await userDocRef
         .doc(postId)
-        .set(post.toMap()); // Save the post to Firestore
+        .set(post.toMap()); // Save the post to Firestore by post Id
   }
 
   Future<void> updateUserProfile(
@@ -78,7 +123,9 @@ class PostsRepository {
         .collection(FirebaseConstants.postsCollection)
         .doc(auth.currentUser!.uid)
         .collection(FirebaseConstants.userPostsCollection);
-    await userDocRef.doc(postId).delete(); // Delete the post from Firestore
+    await userDocRef
+        .doc(postId)
+        .delete(); // Delete the post from Firestore by postId
   }
 
   Future<XFile?> pickImage(ImageSource source) async {

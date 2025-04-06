@@ -11,13 +11,18 @@ class UserModel {
   });
 
   factory UserModel.fromDocument(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>?;
+    if (data == null) {
+      throw Exception('Document data is null');
+    }
+
     return UserModel(
-      userId: doc['userId'] as String,
-      userName: doc['userName'] as String,
-      userEmail: doc['userEmail'] as String,
-      deviceToken: doc['deviceToken'] as String,
-      isEmailVerified: doc['isEmailVerified'],
-      userProfile: doc['userProfile']?.toString(),
+      userId: data['userId'] as String? ?? '',
+      userName: data['userName'] as String? ?? '',
+      userEmail: data['userEmail'] as String? ?? '',
+      deviceToken: data['deviceToken'] as String? ?? '',
+      isEmailVerified: data['isEmailVerified'] as bool? ?? false,
+      userProfile: data['userProfile']?.toString(),
     );
   }
 

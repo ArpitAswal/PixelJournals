@@ -17,14 +17,21 @@ class AuthCubit extends Cubit<AuthState> {
       authInst =
           FirebaseAuth
               .instance, // initialize the authInst variable with an instance of FirebaseAuth
-      super(AuthInitial()) {// initialize the state to AuthInitial
-       _currentUserState();
+      super(AuthInitial()) {
+    // initialize the state to AuthInitial
+    _currentUserState();
   }
 
   final FirebaseAuth authInst;
+
   final AuthRepository _authRepository;
   StreamSubscription<User?>? _authUser;
 
+  @override
+  Future<void> close() {
+    _authUser?.cancel();
+    return super.close();
+  }
 
   Future<void> signUpWithEmail({
     required String email,
@@ -116,19 +123,27 @@ class AuthCubit extends Cubit<AuthState> {
 
   void _currentUserState() {
     _authUser?.cancel();
-     _authRepository.authInstance().listen((user){
-      if(user != null){
-        emit(AuthSignedIn(UserModel(userId: user.uid, userName: user.displayName ?? "NA", isEmailVerified: user.emailVerified,
-        userEmail: user.email ?? "NA", userProfile: user.photoURL)));
-      } else {
-        emit(AuthSignedOut());
-      }
-    });
-  }
-
-  @override
-  Future<void> close() {
-    _authUser?.cancel();
-    return super.close();
+    _authRepository.authInstance().listen(
+      (user) {
+        if (user != null) {
+          emit(
+            AuthSignedIn(
+              UserModel(
+                userId: user.uid,
+                userName: user.displayName ?? "NA",
+                isEmailVerified: user.emailVerified,
+                userEmail: user.email ?? "NA",
+                userProfile: user.photoURL,
+              ),
+            ),
+          );
+        } else {
+          emit(AuthSignedOut());
+        }
+      },
+      onError: (e) {
+        emit(AuthError(e.toString()));
+      },
+    );
   }
 }
