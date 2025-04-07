@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 
 import '../../../data/models/post_model.dart';
+import '../../../data/models/user_model.dart';
 import '../../../data/repositories/post_repository.dart';
 
 // Post Events
@@ -25,6 +26,13 @@ class _UpdatePosts extends PostsEvent {
   _UpdatePosts(this.posts);
 
   final List<PostModel> posts;
+}
+
+class UserDetails extends PostsEvent {
+  // This event is used to show the post detail with user detail when the user clicks on a post
+  UserDetails(this.userId);
+
+  final String userId;
 }
 
 class _ErrorPosts extends PostsEvent {
@@ -58,6 +66,12 @@ class PostsError extends PostsState {
   PostsError(this.message);
 
   final String message;
+}
+
+class PostUserDetail extends PostsState {
+  PostUserDetail(this.user);
+
+  final UserModel user;
 }
 
 class PostsBloc extends Bloc<PostsEvent, PostsState> {
@@ -109,6 +123,19 @@ class PostsBloc extends Bloc<PostsEvent, PostsState> {
       }
     });
 
+    on<UserDetails>((event, emit) async {
+      try {
+        final detail = await _postRepository.postDetail(event.userId);
+        if (detail != null) {
+          emit(PostUserDetail(detail));
+        } else {
+          emit(PostsError("User not found"));
+        }
+      } catch (e) {
+        emit(PostsError(e.toString()));
+      }
+    });
+
     on<DeletePost>((event, emit) {
       // This event is used to delete a post from the posts list
       _postRepository.deletePost(event.post.postId);
@@ -129,5 +156,10 @@ class PostsBloc extends Bloc<PostsEvent, PostsState> {
     // This method is used to close the posts subscription when the app is closed
     _postsSubscription?.cancel();
     return super.close();
+  }
+
+  Future<UserModel?> postUser(String userId) async {
+    // fetch the user profile for a particular post
+    return await _postRepository.postDetail(userId);
   }
 }

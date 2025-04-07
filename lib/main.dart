@@ -18,6 +18,7 @@ import 'package:pixel_journals/presentation/views/screens/forgot_screen.dart';
 import 'data/repositories/user_repository.dart';
 import 'presentation/viewmodels/bloc/user_bloc.dart';
 import 'presentation/viewmodels/cubit/navigation_cubit/cubit.dart';
+import 'presentation/viewmodels/cubit/post_cubit/cubit.dart';
 import 'presentation/viewmodels/cubit/text_field_cubit/cubit.dart';
 import 'presentation/views/screens/email_screen.dart';
 import 'presentation/views/screens/posts_screen.dart';
@@ -86,6 +87,9 @@ class _MyAppState extends State<MyApp> {
                   UserBloc(userRepository: UserRepository())..add(LoadUsers()),
         ),
         BlocProvider(create: (context) => NavigationCubit()),
+        BlocProvider(
+          create: (context) => PostDetailCubit(repository: PostsRepository()),
+        ),
       ],
       child: MaterialApp(
         title: 'Pixel Journals',

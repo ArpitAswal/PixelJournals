@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,15 +5,35 @@ import 'package:intl/intl.dart';
 import 'package:panara_dialogs/panara_dialogs.dart';
 import 'package:pixel_journals/presentation/viewmodels/bloc/posts_bloc.dart';
 
-import '../../../core/constants.dart';
 import '../../../data/models/post_model.dart';
 import '../../../data/models/user_model.dart';
 import '../../viewmodels/cubit/auth_cubit/cubit.dart';
+import '../../viewmodels/cubit/post_cubit/cubit.dart';
+import '../screens/post_detail_screen.dart';
+import 'cache_network_image.dart';
 
-class PostItem extends StatelessWidget {
+class PostItem extends StatefulWidget {
   const PostItem(this.post, {super.key});
 
   final PostModel post;
+
+  @override
+  State<PostItem> createState() => _PostItemState();
+}
+
+enum UserProfileState { initial, loaded, failed }
+
+class _PostItemState extends State<PostItem> {
+  late UserModel? _postUser; // hold the post user detail
+  late ValueNotifier<UserProfileState>
+  _profileState; // hold the state of user profile fetching
+
+  @override
+  void initState() {
+    super.initState();
+    _profileState = ValueNotifier(UserProfileState.initial);
+    _fetchUser();
+  }
 
   String formatTimestamp(Timestamp timestamp) {
     final nowTimestamp = Timestamp.now();
@@ -42,24 +61,15 @@ class PostItem extends StatelessWidget {
     }
   }
 
-  Stream<UserModel?> _getUserStream(BuildContext context) {
-    return FirebaseFirestore.instance
-        .collection(FirebaseConstants.usersCollection)
-        .doc(post.userId)
-        .snapshots()
-        .map((doc) {
-          try {
-            if (!doc.exists) {
-              // Check if the document exists
-              return null;
-            }
-            return UserModel.fromDocument(
-              doc,
-            ); // Parse the user data from the document
-          } catch (e) {
-            return null;
-          }
-        });
+  Future<void> _fetchUser() async {
+    _postUser = await context.read<PostsBloc>().postUser(widget.post.userId);
+    if (_postUser == null) {
+      // if there is an error on fetching user detail
+      _profileState.value = UserProfileState.failed;
+    } else {
+      // if successfully, user detail loaded
+      _profileState.value = UserProfileState.loaded;
+    }
   }
 
   Widget _buildImage(BuildContext context) {
@@ -67,119 +77,73 @@ class PostItem extends StatelessWidget {
       child: InteractiveViewer(
         minScale: 1.0,
         maxScale: 5.0,
-        child: CachedNetworkImage(
-          imageUrl: post.postUrl,
-          imageBuilder: _buildImageContainer,
-          placeholder: _buildLoadingPlaceholder,
-          errorWidget: (_, __, ___) => const Center(child: Icon(Icons.error)),
+        child: CacheNetworkImage().buildNetworkImage(
+          context,
+          imgUrl: widget.post.postUrl,
+          height: MediaQuery.of(context).size.height,
         ),
       ),
     );
   }
 
-  Widget _buildImageContainer(
-    BuildContext context,
-    ImageProvider imageProvider,
-  ) {
-    return Container(
-      width: MediaQuery.of(context).size.width,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: imageProvider,
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.high,
+  _buildPostProfile(BuildContext context, UserModel user) {
+    final time = formatTimestamp(
+      widget.post.postTimeStamp,
+    ); // Format the timestamp
+
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 24.0,
+          backgroundImage:
+              user.userProfile != null ? NetworkImage(user.userProfile!) : null,
+          child: Icon(
+            Icons.person_rounded,
+            size: MediaQuery.of(context).size.width * 0.1,
+            color: Colors.white,
+          ),
         ),
-        borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(12.0),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingPlaceholder(BuildContext context, String url) {
-    final size = MediaQuery.of(context).size.width / 4;
-    return Center(
-      child: SizedBox(
-        height: size,
-        width: size,
-        child: const CircularProgressIndicator(),
-      ),
-    );
-  }
-
-  _buildPostProfile(BuildContext context) {
-    final time = formatTimestamp(post.postTimeStamp); // Format the timestamp
-
-    return StreamBuilder<UserModel?>(
-      stream: _getUserStream(context),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircleAvatar(
-            radius: 24.0,
-            child: CircularProgressIndicator(),
-          );
-        } else if (snapshot.hasError) {
-          return _errorPostProfile(context, msg: snapshot.error.toString());
-        } else if (!snapshot.hasData || snapshot.data == null) {
-          return _errorPostProfile(context, msg: "User not found");
-        } else {
-          final user = snapshot.data!;
-          return Row(
-            mainAxisSize: MainAxisSize.max,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
-                radius: 24.0,
-                backgroundImage:
-                    user.userProfile != null
-                        ? NetworkImage(user.userProfile!)
-                        : null,
-                child: Icon(
-                  Icons.person_rounded,
-                  size: MediaQuery.of(context).size.width * 0.1,
-                  color: Colors.white,
-                ),
+              Text(
+                user.userName,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyLarge,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      user.userName,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          time,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(Icons.timer_outlined),
-                      ],
-                    ),
-                  ],
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(time, style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(width: 5),
+                  Icon(Icons.timer_outlined),
+                ],
               ),
-              if (post.userId ==
-                  context.read<AuthCubit>().authInst.currentUser!.uid)
-                _deleteBtn(context),
             ],
-          );
-        }
-      },
+          ),
+        ),
+        if (widget.post.userId ==
+            context
+                .read<AuthCubit>()
+                .authInst
+                .currentUser!
+                .uid) // if the current post is uploaded by auth user then the post delete option is available
+          _deleteBtn(context),
+      ],
     );
   }
 
   _errorPostProfile(BuildContext context, {required String msg}) {
-    final time = formatTimestamp(post.postTimeStamp); // Format the timestamp
+    final time = formatTimestamp(
+      widget.post.postTimeStamp,
+    ); // Format the timestamp
     return Row(
       mainAxisSize: MainAxisSize.max,
       mainAxisAlignment: MainAxisAlignment.start,
@@ -218,7 +182,8 @@ class PostItem extends StatelessWidget {
             ],
           ),
         ),
-        if (post.userId == context.read<AuthCubit>().authInst.currentUser!.uid)
+        if (widget.post.userId ==
+            context.read<AuthCubit>().authInst.currentUser!.uid)
           _deleteBtn(context),
       ],
     );
@@ -235,7 +200,7 @@ class PostItem extends StatelessWidget {
           confirmButtonText: 'YES',
           cancelButtonText: 'NO',
           onTapConfirm: () {
-            context.read<PostsBloc>().add(DeletePost(post));
+            context.read<PostsBloc>().add(DeletePost(widget.post));
             Navigator.of(context).pop(); // Close the dialog
           },
           onTapCancel: () {
@@ -251,7 +216,17 @@ class PostItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.of(context).pushNamed('/postDetailsScreen', arguments: post);
+        context.read<PostDetailCubit>().checkLiked(
+          widget.post.postId,
+        ); // initial status of photo, whether it is liked by current auth user or not.
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) =>
+                    PostDetailsOverlay(post: widget.post, user: _postUser!),
+          ),
+        );
       },
       child: Card(
         elevation: 8.0,
@@ -266,14 +241,28 @@ class PostItem extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: _buildPostProfile(context),
+              child: ValueListenableBuilder(
+                valueListenable: _profileState,
+                builder: (context, value, child) {
+                  if (value == UserProfileState.failed) {
+                    return _errorPostProfile(
+                      context,
+                      msg: "Failed to load user profile",
+                    );
+                  } else if (value == UserProfileState.loaded) {
+                    return _buildPostProfile(context, _postUser!);
+                  } else {
+                    return Text("Profile User is loading");
+                  }
+                },
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 8.0,
               ).copyWith(bottom: 6.0),
               child: Text(
-                post.postDescription,
+                widget.post.postDescription,
                 maxLines: 2,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w400,

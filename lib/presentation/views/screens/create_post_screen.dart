@@ -143,7 +143,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ),
                   autocorrect: false,
                   textCapitalization: TextCapitalization.none,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.newline,
                 ),
               ],
             ),
