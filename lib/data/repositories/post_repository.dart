@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
 import '../models/chat_model.dart';
 import '../models/post_model.dart';
+import '../models/user_model.dart';
 
 class PostsRepository {
   PostsRepository()
@@ -90,7 +91,7 @@ class PostsRepository {
       postId: postId,
       postTimeStamp: Timestamp.now(),
       postUrl: imageUrl,
-      postDescription: description.toLowerCase(),
+      postDescription: description,
       userId: auth.currentUser!.uid,
     );
 
@@ -183,9 +184,78 @@ class PostsRepository {
                   .map((doc) => PostModel.fromMap(doc.data()))
                   .toList(); // Convert each document to PostModel
           return posts
-              .where((post) => post.postDescription.contains(searchQuery))
+              .where(
+                (post) => post.postDescription.toLowerCase().contains(
+                  searchQuery.toLowerCase(),
+                ),
+              )
               .toList(); // Filter posts by description
         });
+  }
+
+  Future<UserModel?> postDetail(String userId) async {
+    return await _firestore
+        .collection(FirebaseConstants.usersCollection)
+        .doc(userId)
+        .get()
+        .then((onValue) {
+          // Fetch user details for a specific post
+          if (onValue.exists) {
+            return UserModel.fromMap(onValue.data()!);
+          } else {
+            return null; // Return null if user does not exist
+          }
+        });
+  }
+
+  Future<void> postLiked(bool isLiked, String postId) async {
+    // current auth like this post or not, if yes then save it on Firestore Firebase otherwise delete it.
+    final path = _firestore
+        .collection(FirebaseConstants.likedCollection)
+        .doc(auth.currentUser!.uid);
+    final doc = await path.get();
+    if (doc.exists) {
+      if (isLiked) {
+        path.update({
+          'postIDs': FieldValue.arrayUnion(
+            [postId],
+          ), // Each specified element that doesn't already exist in the array will be added to the end. If the field being modified is not already an array it will be overwritten with an array containing exactly the specified elements.
+        });
+      } else {
+        path.update({
+          'postIDs': FieldValue.arrayRemove(
+            [postId],
+          ), // All instances of each element specified will be removed from the array. If the field being modified is not already an array it will be overwritten with an empty array.
+        });
+      }
+    } else {
+      path.set({
+        'postIDs': [postId], // set the list with post id
+      });
+    }
+  }
+
+  Future<bool> isPostLiked(String postId) async {
+    final data =
+        await _firestore
+            .collection(FirebaseConstants.likedCollection)
+            .doc(auth.currentUser!.uid)
+            .get();
+    if (data.exists && data.data() != null) {
+      // Convert List<dynamic> to List<String>
+      final List<dynamic> dynamicList =
+          data.data()!['postIDs'] as List<dynamic>;
+      final List<String> postIds =
+          dynamicList.map((e) => e.toString()).toList();
+      if (postIds.contains(postId)) {
+        // if the postId contain means the post is already liked otherwise not.
+        return true;
+      }
+      return false;
+    } else {
+      // if data does not exist, means the current auth user does not like any post yet!.
+      return false;
+    }
   }
 
   Future<String> _uploadImage(File image) async {

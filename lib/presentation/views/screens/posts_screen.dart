@@ -81,7 +81,9 @@ class _PostsScreenState extends State<PostsScreen> {
               fit: BoxFit.fitWidth,
               child: Text(
                 "Pixel Posts Screen",
-                style: Theme.of(context).textTheme.titleLarge,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: Colors.white),
               ),
             );
           },

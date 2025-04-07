@@ -5,4 +5,5 @@ class FirebaseConstants {
   static const String userPostStorageReference = "PixelJournals/UserPosts/";
   static const String followingCollection = "PixelJournalsFollowUsers";
   static const String followingUsersId = "UserFollowigUsersId";
+  static const String likedCollection = "UserLikePostsCollection";
 }
